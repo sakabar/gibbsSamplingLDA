@@ -97,7 +97,7 @@ class LDA:
     return alpha_nume * beta_nume / alpha_deno / beta_deno
 
   def gibbs_sampling(self):
-    iter_times = 10
+    iter_times = 10000
 
     for itr in xrange(0,iter_times):
       # print "iter: " + str(itr)
