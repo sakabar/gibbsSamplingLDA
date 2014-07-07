@@ -34,11 +34,17 @@ class LDA:
     self.k = k
     self.documents = documents
 
-    self.alpha_vec = [alpha for x in xrange(0,k)]
-    self.beta_vec = [beta for x in xrange(0,k)]
-
     #語彙の集合(重複なし)
     self.vocab_set = set(flatten(documents))
+
+    self.alpha_vec = [alpha for x in xrange(0,k)]
+    self.alpha_sum = sum(self.alpha_vec)
+    # self.beta_vec = [beta for x in xrange(0,len(self.vocab_set))]
+    self.beta_sum = 0
+    self.beta_vec = {}
+    for w in self.vocab_set:
+      self.beta_vec[w] = beta
+      self.beta_sum += beta
 
     #n_d_zi[doc_ind][k]
     #文書dの中でトピック番号kが推定された回数
@@ -61,25 +67,36 @@ class LDA:
     self.word_topic_pairs = []
     for doc in documents:
       self.word_topic_pairs.append([0 for word in doc])
-        
+
+    #n_d[doc_ind]
+    #doc_ind中のトピックの数
+    self.n_d = [0 for doc_ind in xrange(0, len(documents))]
+
+    #n_zi[k]        
+    #トピックkが推定された回数
+    self.n_zi = [0 for x in xrange(0, self.k)]
+
+
     for doc_ind, doc in enumerate(documents):
       for word_ind, word in enumerate(doc):
-        topic_k = random.randint(0,k-1)
-        self.word_topic_pairs[doc_ind][word_ind] = (word, topic_k)
+        initial_topic = random.randint(0,k-1)
+        self.word_topic_pairs[doc_ind][word_ind] = (word, initial_topic)
 
         #カウントの更新
-        self.n_d_zi[doc_ind][topic_k] += 1
-        self.n_w_zi[word][topic_k] += 1
+        self.n_d_zi[doc_ind][initial_topic] += 1
+        self.n_w_zi[word][initial_topic] += 1
+        self.n_d[doc_ind] += 1
+        self.n_zi[initial_topic] += 1
 
     #DEBUG
     # for doc_ind, _ in enumerate(documents):
-    #   for topic_k in xrange(0,k):
-    #     print self.n_d_zi[doc_ind][topic_k]
+    #   for initial_topic in xrange(0,k):
+    #     print self.n_d_zi[doc_ind][initial_topic]
 
     #DEBUG
     # for word in self.vocab_set:
-    #   for topic_k in xrange(0,k):
-    #     print self.n_w_zi[word][topic_k]
+    #   for initial_topic in xrange(0,k):
+    #     print self.n_w_zi[word][initial_topic]
 
   def get_probability(self, doc_ind, word, topic_k):
     if (0 <= topic_k) and (topic_k < self.k):
@@ -88,11 +105,11 @@ class LDA:
       print "line85"
       sys.exit(1)
 
-    beta_nume = self.n_w_zi[word][topic_k] + self.beta_vec[topic_k]
-    beta_deno = sum([self.n_w_zi[w][topic_k] for w in self.vocab_set]) + sum(self.beta_vec)
+    beta_nume = self.n_w_zi[word][topic_k] + self.beta_vec[word]
+    beta_deno = self.n_zi[topic_k] + self.beta_sum
     
     alpha_nume = self.n_d_zi[doc_ind][topic_k] + self.alpha_vec[topic_k]
-    alpha_deno = sum([self.n_d_zi[doc_ind][t] for t in xrange(0, self.k)]) + sum(self.alpha_vec)
+    alpha_deno = self.n_d[doc_ind] + self.alpha_sum
 
     return alpha_nume * beta_nume / alpha_deno / beta_deno
 
@@ -100,8 +117,9 @@ class LDA:
     iter_times = 10000
 
     for itr in xrange(0,iter_times):
-      # print "iter: " + str(itr)
+      sys.stderr.write(str(itr) + "\n")
       for doc_ind, doc in enumerate(self.documents):
+        # sys.stderr.write(str(itr) + " " + str(doc_ind) + "\n")
         for word_ind, word in enumerate(doc):
           # print str(doc_ind) + " " + word
           w_t_pair = self.word_topic_pairs[doc_ind][word_ind]
@@ -111,6 +129,8 @@ class LDA:
           #現在のz_iに対応するカウントをデクリメント
           self.n_d_zi[doc_ind][old_topic] -= 1
           self.n_w_zi[word][old_topic] -= 1
+          self.n_d[doc_ind] -= 1
+          self.n_zi[old_topic] -= 1
 
           #サンプリングのための分布を計算
           dist = []
@@ -120,19 +140,24 @@ class LDA:
           s = sum(dist)
           dist = [d / s for d in dist]
 
+          #新しいトピックに応じて、各変数の値を更新する
           new_topic = sampling_dist(dist)
+          self.word_topic_pairs[doc_ind][word_ind] =(word,  new_topic)
           self.n_d_zi[doc_ind][new_topic] += 1
           self.n_w_zi[word][new_topic] += 1
+          self.n_d[doc_ind] += 1
+          self.n_zi[new_topic] += 1 
 
   def get_phy(self, word, topic_k):
-    nume = self.n_w_zi[word][topic_k] + self.beta_vec[topic_k]
-    deno = sum([self.n_w_zi[w][topic_k] for w in self.vocab_set]) + sum(self.beta_vec)
+    nume = self.n_w_zi[word][topic_k] + self.beta_vec[word]
+    deno = self.n_zi[topic_k] + self.beta_sum
 
     return nume / deno
 
   def rank_words_in_a_topic(self, topic_k):
     lst = [(word, self.get_phy(word, topic_k)) for word in self.vocab_set]
     ans = sorted(lst, key=lambda (w,p):p, reverse=True)
+    # print sum([p for (w,p) in ans])
 
     return ans[0:10]
       
