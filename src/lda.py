@@ -25,14 +25,15 @@ def sampling_dist(lst):
     else:
       pass
 
-  print "line26"
+  print "Error: line26"
   sys.exit(1)
 
 
 class LDA:
-  def __init__(self, k, documents, alpha, beta):
+  def __init__(self, k, documents, alpha, beta, iter_time):
     self.k = k
     self.documents = documents
+    self.iter_time = iter_time
 
     #語彙の集合(重複なし)
     self.vocab_set = set(flatten(documents))
@@ -114,10 +115,8 @@ class LDA:
     return alpha_nume * beta_nume / alpha_deno / beta_deno
 
   def gibbs_sampling(self):
-    iter_times = 10000
-
-    for itr in xrange(0,iter_times):
-      sys.stderr.write(str(itr) + "\n")
+    for itr in xrange(0, self.iter_time):
+      # sys.stderr.write(str(itr) + "\n")
       for doc_ind, doc in enumerate(self.documents):
         # sys.stderr.write(str(itr) + " " + str(doc_ind) + "\n")
         for word_ind, word in enumerate(doc):
