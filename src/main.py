@@ -31,7 +31,7 @@ if __name__ == '__main__':
   #トピックごとに、単語の出現率が高い順に出力
   for topic_k in xrange(0, k):
     print "topic " + str(topic_k)
-    for (w,p) in lda.rank_words_in_a_topic(topic_k):
+    for (w,p) in lda.rank_words_in_a_topic(topic_k, 10):
       print str(w) + " : " + str(p)
 
     print "-----------------------"
