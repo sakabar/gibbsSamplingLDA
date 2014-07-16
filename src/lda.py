@@ -1,45 +1,50 @@
 #coding: utf-8
 import sys
 import random
+
+# 多重の配列を1重の配列にする関数 flatten を使えるようにする
+# flatten([1, [2,3], [4]]) => [1, 2, 3, 4]
 from compiler.ast import flatten
 
 def sampling_dist(lst):
   s = 0
-  p_lst = []
+  probability_density_lst = []
   for num in lst:
     s += num
-    p_lst.append(s)
+    probability_density_lst.append(s)
     
   eps = 0.000001
   if (1.0 - eps <= s) and (s <= 1.0 + eps):
     pass
   else:
-    print "sum is " + str(s)
+    print "sum is " + str(s) + ", not 1.0"
     sys.exit(1)
 
 
+  #rは1未満の値を取る。probability_density_lstの末尾は1.0である
   r = random.random()
-  for ind, num in enumerate(p_lst):
-    if num > r:
+  for ind, prob_density in enumerate(probability_density_lst):
+    if prob_density > r: #等号なしで正しい
       return ind
     else:
       pass
 
-  print "line26"
+  print "Error: probability_density_lst is invalid"
+  print "probability_density_lst is " + str(probability_density_lst)
   sys.exit(1)
 
 
 class LDA:
-  def __init__(self, k, documents, alpha, beta):
+  def __init__(self, k, documents, alpha, beta, iter_time):
     self.k = k
     self.documents = documents
+    self.iter_time = iter_time
 
     #語彙の集合(重複なし)
     self.vocab_set = set(flatten(documents))
 
     self.alpha_vec = [alpha for x in xrange(0,k)]
     self.alpha_sum = sum(self.alpha_vec)
-    # self.beta_vec = [beta for x in xrange(0,len(self.vocab_set))]
     self.beta_sum = 0
     self.beta_vec = {}
     for w in self.vocab_set:
@@ -77,9 +82,11 @@ class LDA:
     self.n_zi = [0 for x in xrange(0, self.k)]
 
 
+
+    #トピックをランダムに割り当てる。その際、カウントをインクリメントする
     for doc_ind, doc in enumerate(documents):
       for word_ind, word in enumerate(doc):
-        initial_topic = random.randint(0,k-1)
+        initial_topic = random.randint(0, k-1)
         self.word_topic_pairs[doc_ind][word_ind] = (word, initial_topic)
 
         #カウントの更新
@@ -88,21 +95,12 @@ class LDA:
         self.n_d[doc_ind] += 1
         self.n_zi[initial_topic] += 1
 
-    #DEBUG
-    # for doc_ind, _ in enumerate(documents):
-    #   for initial_topic in xrange(0,k):
-    #     print self.n_d_zi[doc_ind][initial_topic]
 
-    #DEBUG
-    # for word in self.vocab_set:
-    #   for initial_topic in xrange(0,k):
-    #     print self.n_w_zi[word][initial_topic]
-
-  def get_probability(self, doc_ind, word, topic_k):
+  def get_p_zi(self, doc_ind, word, topic_k):
     if (0 <= topic_k) and (topic_k < self.k):
       pass
     else:
-      print "line85"
+      print "Error: topic numbuer is invalid"
       sys.exit(1)
 
     beta_nume = self.n_w_zi[word][topic_k] + self.beta_vec[word]
@@ -114,14 +112,11 @@ class LDA:
     return alpha_nume * beta_nume / alpha_deno / beta_deno
 
   def gibbs_sampling(self):
-    iter_times = 10000
-
-    for itr in xrange(0,iter_times):
-      sys.stderr.write(str(itr) + "\n")
+    for itr in xrange(0, self.iter_time):
+      # イテレートの回数を出力
+      # sys.stderr.write(str(itr) + "\n")
       for doc_ind, doc in enumerate(self.documents):
-        # sys.stderr.write(str(itr) + " " + str(doc_ind) + "\n")
         for word_ind, word in enumerate(doc):
-          # print str(doc_ind) + " " + word
           w_t_pair = self.word_topic_pairs[doc_ind][word_ind]
           word = w_t_pair[0]
           old_topic = w_t_pair[1]
@@ -135,8 +130,9 @@ class LDA:
           #サンプリングのための分布を計算
           dist = []
           for topic_k in xrange(0, self.k):
-            dist.append(self.get_probability(doc_ind, word, topic_k))
+            dist.append(self.get_p_zi(doc_ind, word, topic_k))
 
+          #正規化
           s = sum(dist)
           dist = [d / s for d in dist]
 
@@ -148,16 +144,16 @@ class LDA:
           self.n_d[doc_ind] += 1
           self.n_zi[new_topic] += 1 
 
-  def get_phy(self, word, topic_k):
+  #ある単語がtopic_kである確率を返す
+  def get_word_probability_in_topic(self, word, topic_k):
     nume = self.n_w_zi[word][topic_k] + self.beta_vec[word]
     deno = self.n_zi[topic_k] + self.beta_sum
 
     return nume / deno
 
-  def rank_words_in_a_topic(self, topic_k):
-    lst = [(word, self.get_phy(word, topic_k)) for word in self.vocab_set]
+  #topic_kでの単語の生成確率が高い順にnth個、配列に入れて返す
+  def rank_words_in_a_topic(self, topic_k, nth):
+    lst = [(word, self.get_word_probability_in_topic(word, topic_k)) for word in self.vocab_set]
     ans = sorted(lst, key=lambda (w,p):p, reverse=True)
-    # print sum([p for (w,p) in ans])
 
-    return ans[0:10]
-      
+    return ans[0:nth]

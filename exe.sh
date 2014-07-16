@@ -1,6 +1,5 @@
 #!/bin/zsh
 
-date
-#python src/main.py < data/kakaku.txt > result.txt
-python src/main.py < data/kakaku_filtered.txt
-date
+#date
+python src/main.py 10 1.0 1.0 20000 < data/kakaku_filtered.txt | sed -e 's/_.*-* / /'
+#date
