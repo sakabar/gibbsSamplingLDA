@@ -145,14 +145,15 @@ class LDA:
           self.n_zi[new_topic] += 1 
 
   #ある単語がtopic_kである確率を返す
-  def get_phy(self, word, topic_k):
+  def get_word_probability_in_topic(self, word, topic_k):
     nume = self.n_w_zi[word][topic_k] + self.beta_vec[word]
     deno = self.n_zi[topic_k] + self.beta_sum
 
     return nume / deno
 
-  def rank_words_in_a_topic(self, topic_k):
-    lst = [(word, self.get_phy(word, topic_k)) for word in self.vocab_set]
+  #topic_kでの単語の生成確率が高い順にnth個、配列に入れて返す
+  def rank_words_in_a_topic(self, topic_k, nth):
+    lst = [(word, self.get_word_probability_in_topic(word, topic_k)) for word in self.vocab_set]
     ans = sorted(lst, key=lambda (w,p):p, reverse=True)
 
-    return ans[0:10]
+    return ans[0:nth]
